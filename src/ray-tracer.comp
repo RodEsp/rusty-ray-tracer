@@ -1,0 +1,120 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+
+// Camera and screen properties
+const vec3 camera_position = vec3(0.0, 0.0, 0.0);
+const float screen_width = 1920;
+const float screen_height = 1080;
+
+// Ray structure
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+// Sphere object
+struct Sphere {
+    vec3 center;
+    float radius;
+    vec3 color;
+};
+
+// Point light
+struct PointLight {
+    vec3 position;
+    vec3 color;
+    float intensity;
+};
+
+// Simple scene with a single sphere
+const Sphere scene_objects[1] = Sphere[](
+    Sphere(vec3(0.0, 0.0, 5.0), 2.0, vec3(0.2, 0.5, 0.2))
+);
+
+const PointLight light = PointLight(vec3(-2.0, -2.0, -2.0), vec3(1.0, 1.0, 1.0), 1.0);
+
+// Generate ray direction for a given pixel
+vec3 ray_direction(float x, float y) {
+    float aspect_ratio = screen_width / screen_height;
+    vec3 screen_point = vec3(2.0 * (x + 0.5) / screen_width - 1.0, (2.0 * (y + 0.5) / screen_height - 1.0) / aspect_ratio, 1.0);
+    return normalize(screen_point - camera_position);
+}
+
+vec3 shade(vec3 intersection_point, Sphere sphere) {
+    // Calculate the surface normal at the intersection point
+    vec3 normal = normalize(intersection_point - sphere.center);
+
+    // Calculate the direction vector from the intersection point to the light
+    vec3 light_direction = normalize(light.position - intersection_point);
+
+    // Compute the diffuse (Lambertian) shading
+    float diffuse = max(0.0, dot(normal, light_direction));
+
+    // Compute the final color by multiplying the sphere's color by the light's color and intensity
+    vec3 color = sphere.color * light.color * diffuse * light.intensity;
+
+    return color;
+}
+
+// Intersection test with a sphere
+bool intersect_sphere(Ray ray, Sphere sphere, out float t) {
+    vec3 oc = ray.origin - sphere.center;
+    float a = dot(ray.direction, ray.direction);
+    float b = 2.0 * dot(oc, ray.direction);
+    float c = dot(oc, oc) - sphere.radius * sphere.radius;
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0) {
+        t = -1.0;
+        return false;
+    } else {
+        t = (-b - sqrt(discriminant)) / (2.0 * a);
+        return true;
+    }
+}
+
+// Trace ray through the scene
+vec3 trace_ray(Ray ray) {
+    float closest_t = 1e10;
+    Sphere closest_sphere;
+    bool hit = false;
+    for (int i = 0; i < 1; ++i) {
+        float t;
+        if (intersect_sphere(ray, scene_objects[i], t)) {
+            if (t < closest_t) {
+                hit = true;
+                closest_t = t;
+                closest_sphere = scene_objects[i];
+            }
+        }
+    }
+    if (hit) {
+        // Compute the intersection point
+        vec3 intersection_point = ray.origin + ray.direction * closest_t;
+
+        // Shade the intersection point
+        return shade(intersection_point, closest_sphere);
+    } else {
+        return vec3(0.0, 0.0, 0.0);
+    }
+}
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    // Check if the pixel coordinates are within the image bounds
+    if (pixel_coords.x >= screen_width || pixel_coords.y >= screen_height) {
+        return;
+    }
+
+    // Generate a ray for this pixel
+    vec3 ray_dir = ray_direction(float(pixel_coords.x), float(pixel_coords.y));
+
+    // Trace the ray through the scene
+    vec3 color = trace_ray(Ray(camera_position, ray_dir));
+
+    // Write the output color
+    imageStore(img, pixel_coords, vec4(color, 1.0));
+}
