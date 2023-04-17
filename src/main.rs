@@ -2,8 +2,6 @@ extern crate sdl2;
 extern crate vulkano;
 
 use image::{ImageBuffer, Rgba};
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{
@@ -15,7 +13,7 @@ use vulkano::device::{Device, DeviceCreateInfo, QueueCreateInfo, QueueFlags};
 use vulkano::format::Format;
 use vulkano::image::view::ImageView;
 use vulkano::image::{ImageDimensions, StorageImage};
-use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
+use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::StandardMemoryAllocator;
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage};
 use vulkano::pipeline::ComputePipeline;
@@ -28,25 +26,9 @@ const SCREEN_WIDTH: u32 = 1920;
 const SCREEN_HEIGHT: u32 = 1080;
 
 fn main() {
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-
-    let window = video_subsystem
-        .window("Rusty Ray Tracer", SCREEN_WIDTH, SCREEN_HEIGHT)
-        .vulkan()
-        .build()
-        .unwrap();
-
-    let instance_extensions =
-        InstanceExtensions::from_iter(window.vulkan_instance_extensions().unwrap());
-
     let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
-    let instance = Instance::new(library, {
-        let mut instance_info = InstanceCreateInfo::application_from_cargo_toml();
-        instance_info.enabled_extensions = instance_extensions;
-        instance_info
-    })
-    .unwrap();
+    let instance =
+        Instance::new(library, InstanceCreateInfo::application_from_cargo_toml()).unwrap();
 
     let physical_device = instance
         .enumerate_physical_devices()
@@ -177,22 +159,4 @@ fn main() {
     image.save("image.png").unwrap();
 
     println!("Everything succeeded!");
-
-    let mut event_pump = sdl_context.event_pump().unwrap();
-
-    'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => {
-                    break 'running;
-                }
-                _ => {}
-            }
-        }
-        ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
-    }
 }
