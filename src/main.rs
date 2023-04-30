@@ -52,7 +52,7 @@ fn main() {
         .unwrap();
     let surface = unsafe {
         Surface::from_handle(
-            instance.clone(),
+            Arc::clone(&instance),
             <_ as Handle>::from_raw(surface_handle),
             SurfaceApi::Xlib,
             None,
@@ -76,7 +76,7 @@ fn main() {
         })
         .expect("couldn't find a compute queue family") as u32;
     let (device, mut queues) = Device::new(
-        physical_device.clone(),
+        Arc::clone(&physical_device),
         DeviceCreateInfo {
             // here we pass the desired queue family to use by index
             queue_create_infos: vec![QueueCreateInfo {
@@ -97,18 +97,22 @@ fn main() {
         device.physical_device().properties().device_name
     );
 
-    // Create a swapchain to render to the results of the compute shader
-    let caps = physical_device
+    let surface_capabilities = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
 
-    let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+    let composite_alpha = surface_capabilities
+        .supported_composite_alpha
+        .into_iter()
+        .next()
+        .unwrap();
 
+    // Create a swapchain to render to the results of the compute shader
     let (swapchain, images) = Swapchain::new(
-        device.clone(),
+        Arc::clone(&device),
         Arc::new(surface),
         SwapchainCreateInfo {
-            min_image_count: caps.min_image_count,
+            min_image_count: surface_capabilities.min_image_count,
             image_usage: ImageUsage::STORAGE,
             image_extent: [SCREEN_WIDTH, SCREEN_HEIGHT],
             composite_alpha,
@@ -127,11 +131,11 @@ fn main() {
             // bytes: "src/ray-tracer.comp.spv"
         }
     }
-    let shader = cs::load(device.clone()).expect("failed to create shader module");
+    let shader = cs::load(Arc::clone(&device)).expect("failed to create shader module");
 
     // Create a compute pipeline to run the shader
     let compute_pipeline = ComputePipeline::new(
-        device.clone(),
+        Arc::clone(&device),
         shader.entry_point("main").unwrap(),
         &(),
         None,
@@ -142,9 +146,9 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     'running: loop {
-        // Acquire the next image from the swapchain
+        // Acquire the next image from the swapchain`
         let (image_index, _suboptimal_acquisition, acquire_future) =
-            match vulkano::swapchain::acquire_next_image(swapchain.clone(), None) {
+            match vulkano::swapchain::acquire_next_image(Arc::clone(&swapchain), None) {
                 Ok(result) => result,
                 Err(AcquireError::OutOfDate) => {
                     // Recreate swapchain if needed
@@ -155,20 +159,20 @@ fn main() {
         let image = &images[image_index as usize];
 
         // Define the descriptor set for the compute shader
-        let view = ImageView::new_default(image.clone()).unwrap();
+        let view = ImageView::new_default(Arc::clone(&image)).unwrap();
 
-        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
+        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(Arc::clone(&device));
 
         let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
         let descriptor_set = PersistentDescriptorSet::new(
             &descriptor_set_allocator,
-            layout.clone(),
+            Arc::clone(&layout),
             [WriteDescriptorSet::image_view(0, view)], // 0 is the binding
         )
         .unwrap();
 
         let command_buffer_allocator =
-            StandardCommandBufferAllocator::new(device.clone(), Default::default());
+            StandardCommandBufferAllocator::new(Arc::clone(&device), Default::default());
         // Create a command buffer that runs the compute shader and copies the result to the swapchain image
         let mut builder = AutoCommandBufferBuilder::primary(
             &command_buffer_allocator,
@@ -178,10 +182,10 @@ fn main() {
         .unwrap();
 
         builder
-            .bind_pipeline_compute(compute_pipeline.clone())
+            .bind_pipeline_compute(Arc::clone(&compute_pipeline))
             .bind_descriptor_sets(
                 PipelineBindPoint::Compute,
-                compute_pipeline.layout().clone(),
+                Arc::clone(&compute_pipeline.layout()),
                 0,
                 descriptor_set,
             )
@@ -192,11 +196,11 @@ fn main() {
 
         // Submit the command buffer to the device queue
         let future = acquire_future
-            .then_execute(queue.clone(), command_buffer)
+            .then_execute(Arc::clone(&queue), command_buffer)
             .unwrap()
             .then_swapchain_present(
-                queue.clone(),
-                SwapchainPresentInfo::swapchain_image_index(swapchain.clone(), image_index),
+                Arc::clone(&queue),
+                SwapchainPresentInfo::swapchain_image_index(Arc::clone(&swapchain), image_index),
             )
             .then_signal_fence_and_flush()
             .unwrap();
