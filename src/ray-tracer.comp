@@ -4,8 +4,21 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform writeonly image2D img;
 
+// layout(set = 0, binding = 1) uniform Camera {
+//     vec3 position;
+//     vec3 view_direction;
+//     vec3 up;
+// } camera;
+
+struct Camera {
+    vec3 position;
+};
+
+const Camera camera = {
+    vec3(0.0,0.0,0.0)
+};
+
 // Camera and screen properties
-const vec3 camera_position = vec3(0.0, 0.0, 0.0);
 const float screen_width = 1920;
 const float screen_height = 1080;
 
@@ -40,7 +53,7 @@ const PointLight light = PointLight(vec3(-2.0, -2.0, -2.0), vec3(1.0, 1.0, 1.0),
 vec3 ray_direction(float x, float y) {
     float aspect_ratio = screen_width / screen_height;
     vec3 screen_point = vec3(2.0 * (x + 0.5) / screen_width - 1.0, (2.0 * (y + 0.5) / screen_height - 1.0) / aspect_ratio, 1.0);
-    return normalize(screen_point - camera_position);
+    return normalize(screen_point - camera.position);
 }
 
 vec3 shade(vec3 intersection_point, Sphere sphere) {
@@ -113,7 +126,7 @@ void main() {
     vec3 ray_dir = ray_direction(float(pixel_coords.x), float(pixel_coords.y));
 
     // Trace the ray through the scene
-    vec3 color = trace_ray(Ray(camera_position, ray_dir));
+    vec3 color = trace_ray(Ray(camera.position, ray_dir));
 
     // Write the output color
     imageStore(img, pixel_coords, vec4(color, 1.0));

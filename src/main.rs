@@ -24,6 +24,24 @@ use vulkano::{
 const SCREEN_WIDTH: u32 = 1920;
 const SCREEN_HEIGHT: u32 = 1080;
 
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+struct Camera {
+    position: [f32; 3],
+    view_direction: [f32; 3],
+    up: [f32; 3],
+}
+
+impl Camera {
+    fn new(position: [f32; 3], view_direction: [f32; 3], up: [f32; 3]) -> Self {
+        Camera {
+            position,
+            view_direction,
+            up,
+        }
+    }
+}
+
 fn main() {
     let sdl_context = sdl2::init().unwrap();
 
@@ -146,6 +164,8 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     'running: loop {
+        let camera = Camera::new([0.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]);
+
         // Acquire the next image from the swapchain`
         let (image_index, _suboptimal_acquisition, acquire_future) =
             match vulkano::swapchain::acquire_next_image(Arc::clone(&swapchain), None) {
