@@ -4,3 +4,6 @@ It is intended to be a voxel ray tracer that only uses compute shaders but as of
 I hope to expand it in the future to allow a compute shader to take a voxel point cloud and generate an image based on ray-voxel intersections.
 
 I wrote a [blog post](https://rodesp.dev/blog/posts/AdventureswithImageFormatsinGLSLVulkanComputeShaders/) about the first hurdle I encountered during its development, which had nothing to do with Rust, and everything to do with Vulkan compute shaders.
+
+
+![image](https://github.com/RodEsp/rusty-ray-tracer/assets/1084688/718f9bb2-a97e-4476-a3e5-a35f5997e798)
